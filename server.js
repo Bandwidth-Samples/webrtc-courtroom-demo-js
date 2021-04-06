@@ -42,7 +42,7 @@ let sessionId = false;
 let callId = false;
 
 let roleMap = { judge: [], translator: [], LEP: [] };
-let currentRoomState = roomStates[2];
+let currentRoomState = roomStates[0];
 
 // let validRoles = ["employee", "manager", "guest"];
 let validRoles = [...roles];

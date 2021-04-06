@@ -8,7 +8,7 @@ const SessionInfo = (props) => {
       <ThreePartLabel
         label="Session"
         id="sessionId"
-        explanation="The session that all participants are in."
+        explanation="The logical session that all participants are in."
         value={props.sessionId}
       />
       <ThreePartLabel

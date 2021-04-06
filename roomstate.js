@@ -19,15 +19,15 @@ const roomStateRoleListenTo = {
 // roomStateRoleListenTo.inSession.translator = ["LEP", "judge"];
 // roomStateRoleListenTo.inTervention.translator = ["LEP", "judge"];
 
-roomStateRoleListenTo.inPrep.judge = ["LEP"];
+roomStateRoleListenTo.inPrep.judge = ["translator", "LEP"];
 roomStateRoleListenTo.inSession.judge = ["translator", "LEP"];
 roomStateRoleListenTo.inTervention.judge = [];
 
-roomStateRoleListenTo.inPrep.LEP = ["translator"];
+roomStateRoleListenTo.inPrep.LEP = ["translator", "judge"];
 roomStateRoleListenTo.inSession.LEP = [];
 roomStateRoleListenTo.inTervention.LEP = [];
 
-roomStateRoleListenTo.inPrep.translator = ["judge"];
+roomStateRoleListenTo.inPrep.translator = ["judge", "LEP"];
 roomStateRoleListenTo.inSession.translator = ["LEP", "judge"];
 roomStateRoleListenTo.inTervention.translator = [];
 
