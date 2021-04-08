@@ -17,42 +17,58 @@ class Session extends Component {
     role: "",
     token: "",
     myAudioStream: "",
-    remoteStream: "",
+    remoteStreams: [],
     micOn: false,
   };
 
   async componentDidMount() {
     console.log("setting the role in componentDidMount");
-    this.setState({ role: "pick" });
+    this.setState({ role: "pick", remoteStreams: [] });
 
     // This event will fire any time a new stream is sent to us
     bandwidthRtc.onStreamAvailable((rtcStream) => {
       console.log("now receiving far end audio");
       console.log(rtcStream);
-      this.setRemoteStream(rtcStream);
+      this.addRemoteStream(rtcStream);
     });
 
     // This event will fire any time a stream is no longer being sent to us
     bandwidthRtc.onStreamUnavailable((endpointId) => {
       console.log("stream discontinued from");
       console.log(endpointId);
-      this.setRemoteStream(undefined);
+      this.removeRemoteStream(endpointId);
     });
   }
 
-  setRemoteStream = (stream) => {
-    console.log("setting the remote stream: ", stream);
-    this.setState({ remoteStream: stream });
+  addRemoteStream = (stream) => {
+    console.log("adding a remote stream: ", stream);
+    const newStreams = [...this.state.remoteStreams, stream];
+    console.log("the new streams are...".newStreams);
+    this.setState({ remoteStreams: newStreams });
+  };
+
+  removeRemoteStream = (endpointId) => {
+    console.log("removing a remote stream: ", endpointId);
+    const oldStreams = [...this.state.remoteStreams];
+    console.log("the old streams are...".oldStreams);
+    const newStreams = oldStreams.filter((item) => {
+      return item.endpointId != endpointId;
+    });
+    console.log("the new streams are...".newStreams);
+    this.setState({ remoteStreams: newStreams });
   };
 
   updateRole = async (role) => {
-    let myAudioStream;
+    // changing the role to something from nothing kicks everything off.
+
     let newRole = role.target.value;
     console.log("role is:", newRole);
     const sessionStateInfo = await getToken(role.target.value);
     console.log("just before setState: ", sessionStateInfo);
-    // this.props.reflectSessionState(sessionStateInfo);
-    myAudioStream = await startStreaming(sessionStateInfo.token, bandwidthRtc);
+    let myAudioStream = await startStreaming(
+      sessionStateInfo.token,
+      bandwidthRtc
+    );
     muteFlip({ audioStream: myAudioStream, micState: false });
     this.setState({
       role: newRole,
@@ -63,16 +79,6 @@ class Session extends Component {
       myAudioStream: myAudioStream,
     });
     console.log("this.state:", this.state);
-  };
-
-  renderStream = (state, props) => {
-    if (this.state.remoteStream) {
-      console.log("Rendering the Stream - state and props");
-      console.log("state", state);
-      console.log("props", props);
-      return <Stream remoteStream={state.remoteStream} />;
-    }
-    return null;
   };
 
   render() {
@@ -88,7 +94,10 @@ class Session extends Component {
           initialMicState={false}
           audioStream={this.state.myAudioStream}
         />
-        {this.renderStream(this.state, this.props)}
+        {this.state.remoteStreams.map((item) => {
+          console.log("displaying stream: ", item);
+          return <Stream remoteStream={item} />;
+        })}
       </React.Fragment>
     );
   }

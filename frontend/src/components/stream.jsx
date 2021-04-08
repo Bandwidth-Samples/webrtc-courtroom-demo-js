@@ -7,7 +7,7 @@ const Stream = (props) => {
   console.log("In Stream: ", props);
   if (!props) return;
   return (
-    <div className="row g-3 align-items-center">
+    <div className="row g-3 align-items-center border">
       <div className="col-2">
         <label className="col-form-label">Stream</label>
       </div>

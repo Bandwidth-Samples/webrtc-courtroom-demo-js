@@ -63,7 +63,7 @@ function attach(element, stream) {
     gotStream(element.id, stream);
   } catch (ex) {
     console.log("failure in attach - element, stream, exception");
-    console.log(element, stream.ex);
+    console.log(element, stream, ex);
   }
 }
 

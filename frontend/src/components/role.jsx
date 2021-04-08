@@ -6,7 +6,7 @@ class Role extends Component {
     console.log("role in the component", this.props.currentRole);
     const disable = this.props.currentRole !== "pick" ? "true" : "false";
     return (
-      <form>
+      <form className="border">
         <ThreePartSelector
           label="Role"
           id="roleId"

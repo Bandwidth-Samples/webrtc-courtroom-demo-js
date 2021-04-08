@@ -51,6 +51,24 @@ if (DEBUG) {
   console.log("\nroles and roomstate: ", validRoles, currentRoomState);
 }
 
+process.on("SIGINT", async function () {
+  if (sessionId) {
+    await webRTCController.deleteSession(
+      accountId,
+      sessionId,
+      (error, response, context) => {
+        if (error && error != 204) {
+          console.log("failed to delete the session: ", sessionId);
+          console.log(error, response, context);
+        } else {
+          console.log("deleted the session: ", sessionId);
+        }
+      }
+    );
+  }
+  process.exit();
+});
+
 /**
  * Setup the call and pass info to the browser so they can join
  */

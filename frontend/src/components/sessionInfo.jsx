@@ -4,7 +4,7 @@ import ThreePartLabel from "./threePartLabel";
 const SessionInfo = (props) => {
   console.log("in sessionInfo:", props);
   return (
-    <form>
+    <form className="border">
       <ThreePartLabel
         label="Session"
         id="sessionId"
