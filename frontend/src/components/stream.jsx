@@ -16,8 +16,15 @@ const Stream = (props) => {
           {" "}
           {props.remoteStream.endpointId}
         </label>
-        <StreamAudio mediaStream={props.remoteStream.mediaStream} />
-        <StreamMeter width="300" mediaStream={props.remoteStream.mediaStream} />
+        <StreamAudio
+          mediaStream={props.remoteStream.mediaStream}
+          streamId={props.remoteStream.endpointId}
+        />
+        <StreamMeter
+          width="300"
+          mediaStream={props.remoteStream.mediaStream}
+          streamId={props.remoteStream.endpointId}
+        />
       </div>
       <div className="col-6">
         <span className="form-text">This is audio from the other guy</span>

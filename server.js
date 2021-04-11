@@ -114,7 +114,7 @@ function sleep(ms) {
 /**
  * Demote a manager to an employee so they can speak to everyone
  */
-app.get("/barge", async (req, res) => {
+app.get("/roomTopology", async (req, res) => {
   console.log(
     `set part# ${req.query.participant} for new room state of: ${req.query.state}`
   );

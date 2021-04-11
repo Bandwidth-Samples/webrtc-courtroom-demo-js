@@ -6,12 +6,7 @@ async function getToken(role) {
   let res = {};
   try {
     res = await axios.post(`${serverUrl}/startBrowserCall?role=${role}`);
-    // var res = await fetch(
-    //   "/startBrowserCall?role=" + document.getElementById("role").value,
-    //   {
-    //     method: "POST",
-    //   }
-    // );
+
     console.log("result", res);
     if (res.status === 200) {
       // return the important token elements
@@ -29,28 +24,51 @@ async function getToken(role) {
   } catch (error) {
     console.log(`failed to setup browser on fetch ${error}`);
   }
-
-  // basic error handling
-  //   if (res.status !== 200) {
-  //     console.log(res);
-  //     alert("Failed to set you up as a participant: " + res.status);
-  //   } else {
-  // const json = await res.json();
-  // console.log(json);
-  // // set some data to make debugging and understanding
-  // sessionEl = document.getElementById("session_id");
-  // sessionEl.innerText = json.session_id;
-  // participant_id = json.participant_id;
-  // partEl = document.getElementById("participant_id");
-  // partEl.innerText = participant_id;
-  // // set the barge link
-  // if (document.getElementById("role").value == "judge") {
-  //   // manageBargeLink("barge");
-  //   addResetRoomStateElements("inSession");
-  // }
-  // startStreaming(json.token);
-  // // add a mute button
-  // enableMuteButton();
 }
 
-export { getToken };
+async function setRoomTopology(roomTopology, participant_id) {
+  console.log(`about to change to '${roomTopology}' for ${participant_id}`);
+  try {
+    let roomTopologyUrl =
+      "/roomTopology?participant=" + participant_id + "&state=" + roomTopology;
+    console.log("barge URL >>>", roomTopologyUrl);
+    var res = await fetch(roomTopologyUrl);
+    console.log(`updating action link to '${roomTopology}'`);
+    return true;
+  } catch (error) {
+    console.log(`failed to change room state ${error}`);
+    return false;
+  }
+}
+
+async function callPSTN(telNo, participantId) {
+  // prevent double clicks
+
+  if (!telNo.match(/^[2-9][0-9]{9}$/)) {
+    document.getElementById("telno").value = "feed me a TN";
+    alert("invalid TN: " + telNo);
+    return false;
+  }
+
+  console.log("About to make a call");
+
+  let destUrl =
+    "/startPSTNCall" +
+    "?participant=" +
+    participantId +
+    "&destinationTn=" +
+    telNo;
+  console.log("to: " + destUrl);
+
+  let pstnRes = await axios.get(destUrl);
+
+  console.log("Make Call Result: ", pstnRes);
+
+  if (pstnRes.status !== 200) {
+    alert("Failed to set you up as a participant: " + pstnRes.status);
+    return false;
+  }
+  return true;
+}
+
+export { getToken, setRoomTopology, callPSTN };

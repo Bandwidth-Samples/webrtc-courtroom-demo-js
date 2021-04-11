@@ -50,7 +50,7 @@ var drawing = false;
 function attach(element, stream) {
   // grab our canvas
   //   canvasContext = document.getElementById("meter").getContext("2d");
-  console.log("in volume meter", element, stream);
+  console.log("in volume meter", element, stream, element.id);
   try {
     element.dataset.max_vol = 0;
     elements.push(element);

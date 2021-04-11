@@ -19,7 +19,7 @@ const StreamMeter = (props) => {
     }
   }, []);
 
-  return <canvas ref={canvasRef} height="30" />;
+  return <canvas id={props.streamId} ref={canvasRef} height="30" />;
 };
 
 export default StreamMeter;

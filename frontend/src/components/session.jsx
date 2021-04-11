@@ -1,9 +1,11 @@
 import React, { Component } from "react";
 import SessionInfo from "./sessionInfo";
 import Stream from "./stream";
-import { getToken } from "../services/api";
+import { callPSTN, getToken, setRoomTopology } from "../services/api";
 import { muteFlip, startStreaming } from "../services/utils";
 import Role from "./role";
+import Room from "./room";
+import PhoneCall from "./phoneCall";
 import Microphone from "./microphone";
 import BandwidthRtc, { RtcStream } from "@bandwidth/webrtc-browser";
 
@@ -19,6 +21,8 @@ class Session extends Component {
     myAudioStream: "",
     remoteStreams: [],
     micOn: false,
+    roomState: "",
+    calledNumber: "",
   };
 
   async componentDidMount() {
@@ -28,7 +32,7 @@ class Session extends Component {
     // This event will fire any time a new stream is sent to us
     bandwidthRtc.onStreamAvailable((rtcStream) => {
       console.log("now receiving far end audio");
-      console.log(rtcStream);
+      console.log("New stream established:", rtcStream);
       this.addRemoteStream(rtcStream);
     });
 
@@ -43,7 +47,7 @@ class Session extends Component {
   addRemoteStream = (stream) => {
     console.log("adding a remote stream: ", stream);
     const newStreams = [...this.state.remoteStreams, stream];
-    console.log("the new streams are...".newStreams);
+    console.log("the new streams are...", newStreams);
     this.setState({ remoteStreams: newStreams });
   };
 
@@ -54,8 +58,20 @@ class Session extends Component {
     const newStreams = oldStreams.filter((item) => {
       return item.endpointId != endpointId;
     });
-    console.log("the new streams are...".newStreams);
+    console.log("the new streams are...", newStreams);
     this.setState({ remoteStreams: newStreams });
+  };
+
+  doRoomUpdate = async (room) => {
+    console.log("updating the room", room);
+    if (this.state.roomState !== room.target.value) {
+      // it has changed
+      if (await setRoomTopology(room.target.value, this.state.participant)) {
+        this.setState({ roomState: room.target.value });
+      } else {
+        console.log("failed to set the room state");
+      }
+    }
   };
 
   updateRole = async (role) => {
@@ -81,6 +97,21 @@ class Session extends Component {
     console.log("this.state:", this.state);
   };
 
+  makeCall = async (telephoneNumber) => {
+    console.log("in makeCall:", telephoneNumber);
+    const callInProgress = await callPSTN(
+      telephoneNumber,
+      this.state.participant
+    );
+    if (callInProgress) {
+      alert(`A ${this.state.role} has been added to the room`);
+      this.setState({ calledNumber: "" });
+    } else {
+      alert(`Attempt to add a ${this.state.role} has failed`);
+    }
+    // this.setState({ calledNumber: callInProgress ? telephoneNumber : "" });
+  };
+
   render() {
     console.log("in render", this.state);
     return (
@@ -90,10 +121,19 @@ class Session extends Component {
           participantId={this.state.participant}
           sessionId={this.state.session}
         />
+        {this.state.role === "judge" ? (
+          <Room currentRole="inPrep" updateRoom={this.doRoomUpdate} />
+        ) : null}
         <Microphone
           initialMicState={false}
           audioStream={this.state.myAudioStream}
         />
+        {this.state.session !== "" ? (
+          <PhoneCall
+            calledNumber={this.state.calledNumber}
+            placeCall={this.makeCall}
+          />
+        ) : null}
         {this.state.remoteStreams.map((item) => {
           console.log("displaying stream: ", item);
           return <Stream remoteStream={item} />;
