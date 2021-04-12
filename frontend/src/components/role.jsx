@@ -3,10 +3,10 @@ import ThreePartSelector from "./threePartSelector";
 
 class Role extends Component {
   render() {
-    console.log("role in the component", this.props.currentRole);
+    // console.log("role in the component", this.props.currentRole);
     const disable = this.props.currentRole !== "pick" ? "true" : "false";
     return (
-      <form className="border">
+      <form>
         <ThreePartSelector
           label="Role"
           id="roleId"

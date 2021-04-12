@@ -22,24 +22,23 @@ class Session extends Component {
     remoteStreams: [],
     micOn: false,
     roomState: "",
-    calledNumber: "",
+    calledNumber: "", // TODO - really needed ?
   };
 
   async componentDidMount() {
-    console.log("setting the role in componentDidMount");
+    // initialization on initial page load
     this.setState({ role: "pick", remoteStreams: [] });
 
     // This event will fire any time a new stream is sent to us
     bandwidthRtc.onStreamAvailable((rtcStream) => {
       console.log("now receiving far end audio");
-      console.log("New stream established:", rtcStream);
+      // console.log("New stream established:", rtcStream);
       this.addRemoteStream(rtcStream);
     });
 
     // This event will fire any time a stream is no longer being sent to us
     bandwidthRtc.onStreamUnavailable((endpointId) => {
-      console.log("stream discontinued from");
-      console.log(endpointId);
+      // console.log("stream discontinued from ",endpointId);
       this.removeRemoteStream(endpointId);
     });
   }
@@ -47,29 +46,26 @@ class Session extends Component {
   addRemoteStream = (stream) => {
     console.log("adding a remote stream: ", stream);
     const newStreams = [...this.state.remoteStreams, stream];
-    console.log("the new streams are...", newStreams);
+    // console.log("the new streams are...", newStreams);
     this.setState({ remoteStreams: newStreams });
   };
 
   removeRemoteStream = (endpointId) => {
     console.log("removing a remote stream: ", endpointId);
     const oldStreams = [...this.state.remoteStreams];
-    console.log("the old streams are...".oldStreams);
     const newStreams = oldStreams.filter((item) => {
       return item.endpointId != endpointId;
     });
-    console.log("the new streams are...", newStreams);
     this.setState({ remoteStreams: newStreams });
   };
 
   doRoomUpdate = async (room) => {
-    console.log("updating the room", room);
     if (this.state.roomState !== room.target.value) {
-      // it has changed
+      console.log("updating the room configuration to...", room);
       if (await setRoomTopology(room.target.value, this.state.participant)) {
         this.setState({ roomState: room.target.value });
       } else {
-        console.log("failed to set the room state");
+        console.log("failed to change the room state");
       }
     }
   };
@@ -78,9 +74,9 @@ class Session extends Component {
     // changing the role to something from nothing kicks everything off.
 
     let newRole = role.target.value;
-    console.log("role is:", newRole);
+    // console.log("role is:", newRole);
     const sessionStateInfo = await getToken(role.target.value);
-    console.log("just before setState: ", sessionStateInfo);
+    // console.log("just before setState: ", sessionStateInfo);
     let myAudioStream = await startStreaming(
       sessionStateInfo.token,
       bandwidthRtc
@@ -94,26 +90,25 @@ class Session extends Component {
       micOn: false,
       myAudioStream: myAudioStream,
     });
-    console.log("this.state:", this.state);
+    // console.log("this.state:", this.state);
   };
 
   makeCall = async (telephoneNumber) => {
-    console.log("in makeCall:", telephoneNumber);
+    console.log(`Adding ${telephoneNumber} to the session`);
     const callInProgress = await callPSTN(
       telephoneNumber,
       this.state.participant
     );
     if (callInProgress) {
-      alert(`A ${this.state.role} has been added to the room`);
-      this.setState({ calledNumber: "" });
+      alert(`A ${this.state.role} has been invited to the room`);
+      // this.setState({ calledNumber: "" });  // TODO - validate that this can be removed
     } else {
-      alert(`Attempt to add a ${this.state.role} has failed`);
+      alert(`Attempt to invite a ${this.state.role} has failed`);
     }
-    // this.setState({ calledNumber: callInProgress ? telephoneNumber : "" });
   };
 
   render() {
-    console.log("in render", this.state);
+    // console.log("in render", this.state);
     return (
       <React.Fragment>
         <Role currentRole={this.state.role} updateRole={this.updateRole} />
@@ -135,7 +130,7 @@ class Session extends Component {
           />
         ) : null}
         {this.state.remoteStreams.map((item) => {
-          console.log("displaying stream: ", item);
+          // console.log("displaying stream: ", item);
           return <Stream remoteStream={item} />;
         })}
       </React.Fragment>

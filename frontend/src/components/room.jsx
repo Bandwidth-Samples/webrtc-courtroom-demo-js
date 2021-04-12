@@ -3,9 +3,9 @@ import ThreePartSelector from "./threePartSelector";
 
 class Room extends Component {
   render() {
-    console.log("room in the component", this.props.currentRoom);
+    // console.log("room in the component", this.props.currentRoom);
     return (
-      <form className="border">
+      <form>
         <ThreePartSelector
           label="Room"
           id="roomId"

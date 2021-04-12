@@ -7,11 +7,11 @@ async function getToken(role) {
   try {
     res = await axios.post(`${serverUrl}/startBrowserCall?role=${role}`);
 
-    console.log("result", res);
+    // console.log("result", res);
     if (res.status === 200) {
       // return the important token elements
       const json = res.data;
-      console.log("Token result is...", json);
+      // console.log("Token result is...", json);
       return {
         sessionId: json.session_id,
         participantId: json.participant_id,
@@ -31,9 +31,9 @@ async function setRoomTopology(roomTopology, participant_id) {
   try {
     let roomTopologyUrl =
       "/roomTopology?participant=" + participant_id + "&state=" + roomTopology;
-    console.log("barge URL >>>", roomTopologyUrl);
+    // console.log("barge URL >>>", roomTopologyUrl);
     var res = await fetch(roomTopologyUrl);
-    console.log(`updating action link to '${roomTopology}'`);
+    // console.log(`updating action link to '${roomTopology}'`);
     return true;
   } catch (error) {
     console.log(`failed to change room state ${error}`);
@@ -50,7 +50,7 @@ async function callPSTN(telNo, participantId) {
     return false;
   }
 
-  console.log("About to make a call");
+  // console.log("About to make a call");
 
   let destUrl =
     "/startPSTNCall" +
@@ -58,11 +58,11 @@ async function callPSTN(telNo, participantId) {
     participantId +
     "&destinationTn=" +
     telNo;
-  console.log("to: " + destUrl);
+  // console.log("to: " + destUrl);
 
   let pstnRes = await axios.get(destUrl);
 
-  console.log("Make Call Result: ", pstnRes);
+  // console.log("Make Call Result: ", pstnRes);
 
   if (pstnRes.status !== 200) {
     alert("Failed to set you up as a participant: " + pstnRes.status);

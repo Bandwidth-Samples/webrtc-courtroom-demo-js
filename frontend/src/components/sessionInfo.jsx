@@ -2,9 +2,9 @@ import React from "react";
 import ThreePartLabel from "./threePartLabel";
 
 const SessionInfo = (props) => {
-  console.log("in sessionInfo:", props);
+  // console.log("in sessionInfo:", props);
   return (
-    <form className="border">
+    <form>
       <ThreePartLabel
         label="Session"
         id="sessionId"

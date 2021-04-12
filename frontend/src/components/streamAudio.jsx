@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
 
 const StreamAudio = ({ mediaStream, streamId }) => {
-  console.log("in StreamAudio: ", mediaStream, streamId);
+  // console.log("in StreamAudio: ", mediaStream, streamId);
 
   const [audio] = useState(mediaStream);
 
   const setTheSrcObject = (audioElement) => {
-    console.log("audioElement: ", audioElement, audio);
+    // console.log("audioElement: ", audioElement, audio);
     try {
       if (audioElement && audio && audioElement.srcObject !== audio) {
-        console.log("setting srcObject");
-        // Set the video element's source object to the WebRTC MediaStream
+        // console.log("setting srcObject");
+        // Set the element's source object to the WebRTC MediaStream
         audioElement.srcObject = audio;
       }
     } catch (ex) {
-      console.log("failure to set HTML element", ex);
+      console.log("failure to set element", ex);
     }
   };
 

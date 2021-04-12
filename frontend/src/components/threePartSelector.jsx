@@ -12,19 +12,7 @@ const ThreePartSelector = ({
   onChange,
 }) => {
   const explanationId = label + "Explainer";
-  console.log(
-    label,
-    ":",
-    id,
-    ":",
-    explanation,
-    ":",
-    value,
-    ":",
-    selections,
-    " : ",
-    ids
-  );
+  // console.log(label,":",id,":",explanation,":",value,":",selections," : ",ids);
   const selectionNamesArray = selections.split(",");
   const selectionIdArray = ids.split(",");
   const selectionsArray = [];
@@ -34,9 +22,9 @@ const ThreePartSelector = ({
       label: selectionNamesArray[selection],
     };
   }
-  console.log("Selections Array", selectionsArray);
+  // console.log("Selections Array", selectionsArray);
   return (
-    <div className="row g-3 align-items-center">
+    <div className="row g-3 align-items-center border">
       <div className="col-2">
         <label className="col-form-label">{label}</label>
       </div>

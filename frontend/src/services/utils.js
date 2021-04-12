@@ -9,7 +9,7 @@ async function startStreaming(token, bandwidthRtc) {
     audio: true,
     video: false,
   });
-  console.log("streamResp: ", streamResp);
+  // console.log("streamResp: ", streamResp);
   let my_audio_stream = streamResp.mediaStream;
   my_audio_stream.getAudioTracks()[0].enabled = false;
   console.log("browser mic is streaming with stream:");
@@ -18,8 +18,8 @@ async function startStreaming(token, bandwidthRtc) {
 }
 
 function muteFlip({ audioStream, micState }) {
-  console.log("in muteflip", micState);
-  console.log(audioStream);
+  // console.log("in muteflip", micState);
+  // console.log(audioStream);
   if (audioStream && audioStream.getAudioTracks)
     audioStream.getAudioTracks()[0].enabled = micState;
 }

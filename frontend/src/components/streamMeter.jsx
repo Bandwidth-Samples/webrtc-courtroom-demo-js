@@ -2,14 +2,14 @@ import React, { useRef, useEffect, useState } from "react";
 import attach from "../services/volume_meter";
 
 const StreamMeter = (props) => {
-  console.log("in StreamMeter - Props:", props);
+  // console.log("in StreamMeter - Props:", props);
 
   const canvasRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
 
-    console.log("in StreamMeter useEffect", canvasRef, canvas);
+    // console.log("in StreamMeter useEffect", canvasRef, canvas);
 
     if (!(canvas && props.mediaStream)) {
       console.log("in StreamMeter - returning because of null props");

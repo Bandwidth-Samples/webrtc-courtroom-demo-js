@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
-import ThreePartStream from "./threePartStream";
+import React from "react";
 import StreamAudio from "./streamAudio";
 import StreamMeter from "./streamMeter";
 
 const Stream = (props) => {
-  console.log("In Stream: ", props);
+  // console.log("In Stream: ", props);
   if (!props) return;
   return (
     <div className="row g-3 align-items-center border">

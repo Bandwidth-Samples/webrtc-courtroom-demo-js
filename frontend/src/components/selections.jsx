@@ -1,7 +1,7 @@
 import React from "react";
 
 const Selections = ({ id, value, disableSelection, onChange, items }) => {
-  console.log("Selections", { id, value, disableSelection, onChange, items });
+  // console.log("Selections", { id, value, disableSelection, onChange, items });
   return (
     <select
       className="form-select"
