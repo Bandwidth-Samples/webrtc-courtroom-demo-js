@@ -198,6 +198,7 @@ app.post("/callAnswered", async (req, res) => {
   console.log(
     `received answered callback for call ${callId} to ${req.body.to}`
   );
+  console.log("answered body", req.body);
   session_id = await getSessionId();
 
   const { participant, sponsorRole } = calls.get(callId);
@@ -229,6 +230,8 @@ app.post("/callAnswered", async (req, res) => {
   // ToDo: get the sessionId use out of here, maybe by placing it with "calls"
   console.log(`transferring call ${callId} to session ${sessionId}`);
   const bxml = webRTCController.generateTransferBxml(participant.token);
+
+  console.log("BXML", bxml);
 
   // Send the payload back to the Voice API
   res.contentType("application/xml").send(bxml);

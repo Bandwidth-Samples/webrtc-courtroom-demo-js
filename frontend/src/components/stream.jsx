@@ -26,7 +26,9 @@ const Stream = (props) => {
         />
       </div>
       <div className="col-6">
-        <span className="form-text">This is audio from the other guy</span>
+        <span className="form-text">
+          This is audio from another participant
+        </span>
       </div>
     </div>
   );
