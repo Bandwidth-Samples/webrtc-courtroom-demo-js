@@ -11,6 +11,9 @@ const bodyParser = require("body-parser");
 const { roles, roomStates, getRolesToListenTo } = require("./roomState");
 const { removeAllListeners } = require("process");
 
+// TODO - clean up all resources on browser close and on SIGINT
+// TODO - clean up the debug logging a bit
+
 app.use(bodyParser.json());
 
 // config
@@ -18,7 +21,7 @@ app.use(bodyParser.json());
 const port = 5000;
 const accountId = process.env.ACCOUNT_ID;
 
-const DEBUG = true;
+const DEBUG = false;
 
 // Global variables
 BandwidthWebRTC.Configuration.basicAuthUserName = process.env.BAND_USERNAME;
@@ -39,7 +42,7 @@ let users = new Map();
 // track our session ID and phone call Id
 //  - if not a demo, these would be stored in persistant storage
 let sessionId = false;
-let callId = false;
+let callId = false;    // TODO - get rid of this global 
 
 let roleMap = { judge: [], translator: [], LEP: [] };
 let currentRoomState = roomStates[0];
@@ -48,7 +51,7 @@ let currentRoomState = roomStates[0];
 let validRoles = [...roles];
 
 if (DEBUG) {
-  console.log("\nroles and roomstate: ", validRoles, currentRoomState);
+  console.log("\nroles and initial room state: ", validRoles, currentRoomState);
 }
 
 process.on("SIGINT", async function () {
@@ -73,7 +76,7 @@ process.on("SIGINT", async function () {
  * Setup the call and pass info to the browser so they can join
  */
 app.post("/startBrowserCall", async (req, res) => {
-  console.log(`setup browser client for role of: ${req.query.role}`);
+  console.log(`\n\n\nsetup browser client for role of: ${req.query.role}`);
   if (!validRoles.includes(req.query.role)) {
     console.log(`Bad role passed in :${req.query.role}`);
     res.status(400).send({ message: `${req.query.role} is not a valid role` });
@@ -116,14 +119,12 @@ function sleep(ms) {
  */
 app.get("/roomTopology", async (req, res) => {
   console.log(
-    `set part# ${req.query.participant} for new room state of: ${req.query.state}`
+    `\n\nparticipant # ${req.query.participant} set the new room state of: ${req.query.state}`
   );
 
   currentRoomState = req.query.state;
 
   let session_id = await getSessionId(accountId, "session-test");
-  console.log("New Room State is...", currentRoomState);
-
   try {
     // in this model only the judge controls the session topology, and
     // as a result we can cheat on the role.
@@ -261,7 +262,7 @@ app.get("/endPSTNCall", async (req, res) => {
  * start our server
  */
 
-console.log("dirname", __dirname);
+if (DEBUG) console.log("dirname", __dirname);
 app.use(express.static(path.join(__dirname, "frontend", "build")));
 
 app.get("/*", (req, res) => {
@@ -370,12 +371,16 @@ async function updateSubscriptions(
   // console.log(`Also users is ${JSON.stringify(users)}`);
 
   // iterate through all users and update their subscriptions
+  console.log("\nUpdating the Subscriptions");
   users.forEach(async function (user, p_id, u_map) {
     jsonSubs = determineSubscriptions(user, session_id);
+    if (DEBUG) {
+      console.log("\nSubscriber Update request for ", user, "\nis\n", jsonSubs);
+    }
     var body = new BandwidthWebRTC.Subscriptions(jsonSubs);
 
     if (DEBUG) {
-      console.log("body is (1)", body);
+      // console.log("body is (1)", body);
     }
 
     // if the user (new or otherwise) has no participants,
@@ -392,23 +397,25 @@ async function updateSubscriptions(
 
     if (DEBUG) {
       console.log(
-        `updating user ${user.participant_id} to \n${JSON.stringify(jsonSubs)}`
+        `\nupdating user ${user.role} ${user.participant_id} to \n${JSON.stringify(jsonSubs)}`
       );
-      console.log("body is (2)", body);
+      // console.log("body is (2)", body);
     }
 
     try {
       // first time we have to add, afterwards we update,
       //  so check if this iteration is for the user passed in
       if (user.new) {
-        console.log("new user to be added to session\n", user, "\n", users);
+        if (DEBUG) console.log("\nnew user to be added to session\n", user);
         users.set(user.participant_id, {
           participant_id: user.participant_id,
           role: user.role,
           new: false,
         });
-        console.log("updated users", users);
+        if (DEBUG) console.log("updated users list", users);
         // TODO - look at adding a null participant !!!!
+        if (DEBUG) console.log("attempting to add participant to a session for the first time", account_id,
+        session_id, user.participant_id, body);
         await webRTCController.addParticipantToSession(
           account_id,
           session_id,
@@ -416,6 +423,8 @@ async function updateSubscriptions(
           body
         );
       } else {
+        if (DEBUG) console.log("attempting to update subscription", account_id,
+        session_id, user.participant_id, body);
         await webRTCController.updateParticipantSubscriptions(
           account_id,
           user.participant_id,
@@ -441,7 +450,7 @@ function addUserToList(participant_id, role) {
   // is this user new?
 
   if (!users.has(participant_id)) {
-    console.log("setting up new user", role, "\n", roleMap);
+    console.log(`setting up new ${role} user`);
     roleMap[role].push(participant_id);
 
     users.set(participant_id, {
@@ -455,7 +464,7 @@ function addUserToList(participant_id, role) {
     if (!roleMap[role].includes(participant_id)) {
       // clear it from any list
       validRoles.forEach(function (r) {
-        // we don't know their old role (we could assume it's the opposite of current)
+        // we don't know their old role
         var index = roleMap[r].indexOf(participant_id);
         if (index > -1) {
           roleMap[r].splice(index, 1);
@@ -473,8 +482,8 @@ function addUserToList(participant_id, role) {
     }
   }
   if (DEBUG) {
-    console.log("addUserToList(exit) users are...", users);
-    console.log("RoleMap is...", roleMap);
+    console.log("addUserToList\nusers are...", users);
+    console.log("RoleMap is...", roleMap, "\n");
   }
 }
 
@@ -496,7 +505,9 @@ function determineSubscriptions(user, session_id) {
   }
 
   console.log(
-    "subscriptions aggregated>>>",
+    "subscriptions for the ",
+    user.role,
+    " are ",
     subscriptions,
     " from ",
     rolesToListenTo

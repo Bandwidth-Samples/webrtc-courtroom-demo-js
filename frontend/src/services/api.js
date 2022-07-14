@@ -1,5 +1,10 @@
 import axios from "axios";
-import { serverUrl } from "../config.json";
+import configVars from "../config";
+
+// import { serverUrl } from "../config.json";
+
+const serverUrl = configVars.serverUrl;
+console.log("Config info", configVars, serverUrl);
 
 async function getToken(role) {
   console.log("Fetching token from server");

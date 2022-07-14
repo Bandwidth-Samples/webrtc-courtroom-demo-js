@@ -20,12 +20,16 @@ const roomStateRoleListenTo = {
 // roomStateRoleListenTo.inTervention.translator = ["LEP", "judge"];
 
 roomStateRoleListenTo.inPrep.judge = ["translator", "LEP"];
-roomStateRoleListenTo.inPrep.LEP = ["translator", "judge"];
-roomStateRoleListenTo.inPrep.translator = ["judge", "LEP"];
+roomStateRoleListenTo.inPrep.LEP = [];
+roomStateRoleListenTo.inPrep.translator = ["judge"];
 
 roomStateRoleListenTo.inSession.judge = ["translator", "LEP"];
-roomStateRoleListenTo.inSession.LEP = [];
+roomStateRoleListenTo.inSession.LEP = ["translator", "judge"];
 roomStateRoleListenTo.inSession.translator = ["LEP", "judge"];
+
+// roomStateRoleListenTo.inTervention.judge = ["translator"];
+// roomStateRoleListenTo.inTervention.LEP = ["judge"];
+// roomStateRoleListenTo.inTervention.translator = ["LEP"];
 
 roomStateRoleListenTo.inTervention.judge = [];
 roomStateRoleListenTo.inTervention.LEP = [];
@@ -55,18 +59,22 @@ function getRolesToListenTo(roomstate, role) {
 //   }
 // }
 
+console.log("\nRoom State Map of who can listen to whom... ");
 for (let roomState of roomStates) {
-  console.log(" ");
   for (let role of roles) {
     console.log(
       "state",
       roomState,
       "role",
       role,
+      " can listen to: ",
       roomStateRoleListenTo[roomState][role]
     );
   }
+  console.log("\n");
 }
+console.log("\n");
+
 
 // console.log("------------------");
 
