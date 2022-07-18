@@ -2,12 +2,20 @@ async function startStreaming(token, bandwidthRtc) {
   console.log("connecting to BAND WebRTC server");
   // Connect to Bandwidth WebRTC
 
-  await bandwidthRtc.connect({ deviceToken: token });
+  await bandwidthRtc.connect(
+      {
+        deviceToken: token,
+      },
+      // Uncomment to supply a custom URL
+      // {
+      //   websocketUrl: ''
+      // }
+  );
   console.log("connected to bandwidth webrtc!");
   // Publish the browser's microphone
   let streamResp = await bandwidthRtc.publish({
     audio: true,
-    video: false,
+    video: false
   });
   // console.log("streamResp: ", streamResp);
   let my_audio_stream = streamResp.mediaStream;
