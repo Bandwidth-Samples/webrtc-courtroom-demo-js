@@ -422,7 +422,7 @@ async function updateSubscriptions(
 
     if (DEBUG) {
       console.log(
-        `\nupdating user ${user.role} ${user.participant_id} to \n${JSON.stringify(jsonSubs)}`
+        `\nUpdating subscriptions for user ${user.role} ${user.participant_id} to \n${JSON.stringify(body)}`
       );
       // console.log("body is (2)", body);
     }
