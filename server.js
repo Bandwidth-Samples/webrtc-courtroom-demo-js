@@ -1,50 +1,75 @@
-const fs = require("fs");
-const express = require("express");
-const path = require("path");
-const BandwidthWebRTC = require("@bandwidth/webrtc");
-const BandwidthVoice = require("@bandwidth/voice");
-const uuid = require("uuid");
-const dotenv = require("dotenv").config();
-const jwt_decode = require("jwt-decode");
-const app = express();
-const bodyParser = require("body-parser");
-const { roles, roomStates, getRolesToListenTo } = require("./roomState");
-const { removeAllListeners } = require("process");
+import express from "express";
+import path from "path"
+import bodyParser from "body-parser";
+import BandwidthWebRTC from "@bandwidth/webrtc";
+import BandwidthVoice from "@bandwidth/voice";
+import { v1 as uuidv1 } from "uuid";
+import dotenv from "dotenv";
+import { roles, roomStates, getRolesToListenTo } from "./roomstate.js";
 
 // TODO - clean up all resources on browser close and on SIGINT
 // TODO - clean up the debug logging a bit
 
+dotenv.config();
+
+const app = express();
 app.use(bodyParser.json());
 
 // config
-// TODO - validate the environment variables for existence
+const DEBUG = true;
 const port = 5000;
 const accountId = process.env.ACCOUNT_ID;
+const username = process.env.BAND_USERNAME;
+const password = process.env.BAND_PASSWORD;
 
-const DEBUG = false;
+// Check to make sure required environment variables are set
+if (!accountId || !username || !password) {
+  console.error(
+      "ERROR! Please set the ACCOUNT_ID, BAND_PASSWORD, and BW_PASSWORD environment variables before running this app"
+  );
+  process.exit(1);
+}
+
+/*
+ * To use a non-production environment, update the following with custom URLs and values:
+ * - The creation of the WebRTCClient below
+ * - Any use of webRTCController.generateTransferBxml(), supply a custom sipUri value
+ * - The websocketUrl supplied to BandwidthRtc.connect() (in frontend/src/services/utils.js)
+ */
 
 // Global variables
-BandwidthWebRTC.Configuration.basicAuthUserName = process.env.BAND_USERNAME;
-BandwidthWebRTC.Configuration.basicAuthPassword = process.env.BAND_PASSWORD;
-var webRTCController = BandwidthWebRTC.APIController;
+const httpServerUrl = process.env.WEBRTC_HTTP_SERVER_URL;
 
-BandwidthVoice.Configuration.basicAuthUserName = process.env.BAND_USERNAME;
-BandwidthVoice.Configuration.basicAuthPassword = process.env.BAND_PASSWORD;
-var voiceController = BandwidthVoice.APIController;
+const {Client: WebRTCClient, ApiController: WebRTCController, Environment: Environment} = BandwidthWebRTC;
+const webrtcClient = new WebRTCClient({
+  basicAuthUserName: username,
+  basicAuthPassword: password,
+  // Uncomment to use a custom URL
+  // environment: Environment.Custom,
+  // baseUrl: httpServerUrl
+});
+const webRTCController = new WebRTCController(webrtcClient);
+
+const {Client: VoiceClient, ApiController: VoiceController} = BandwidthVoice;
+const voiceClient = new VoiceClient({
+  basicAuthUserName: username,
+  basicAuthPassword: password
+});
+const voiceController = new VoiceController(voiceClient);
 
 // create a map of PSTN calls that will persist
-let calls = new Map();
+const calls = new Map();
 
 // create an Map of users
 //  participant_id -> { role: role, participant_id: participant_id }
-let users = new Map();
+const users = new Map();
 
 // track our session ID and phone call Id
-//  - if not a demo, these would be stored in persistant storage
+//  - if not a demo, these would be stored in persistent storage
 let sessionId = false;
 let callId = false;    // TODO - get rid of this global 
 
-let roleMap = { judge: [], translator: [], LEP: [] };
+const roleMap = { judge: [], translator: [], LEP: [] };
 let currentRoomState = roomStates[0];
 
 // let validRoles = ["employee", "manager", "guest"];
@@ -87,7 +112,7 @@ app.post("/startBrowserCall", async (req, res) => {
     // get/create the session
     let session_id = await getSessionId(accountId, "session-test");
 
-    let [participant, token] = await createParticipant(accountId, uuid.v1());
+    let [participant, token] = await createParticipant(accountId, uuidv1());
 
     await updateSubscriptions(
       accountId,
@@ -157,7 +182,7 @@ app.get("/startPSTNCall", async (req, res) => {
   destinationTn = "+1" + destinationTn;
 
   try {
-    session_id = await getSessionId();
+    await getSessionId();
     if (!initiatingParticipant || !destinationTn) throw "incomplete parameters";
 
     let [participant, token] = await createParticipant(
@@ -166,7 +191,7 @@ app.get("/startPSTNCall", async (req, res) => {
     );
 
     console.log("start the PSTN call to", process.env.destinationTn);
-    callResponse = await initiateCallToPSTN(
+    const callResponse = await initiateCallToPSTN(
       accountId,
       process.env.FROM_NUMBER,
       destinationTn
@@ -199,8 +224,8 @@ app.post("/callAnswered", async (req, res) => {
   console.log(
     `received answered callback for call ${callId} to ${req.body.to}`
   );
-  console.log("answered body", req.body);
-  session_id = await getSessionId();
+  console.log("call answered body", req.body);
+  await getSessionId();
 
   const { participant, sponsorRole } = calls.get(callId);
   console.log(
@@ -230,7 +255,7 @@ app.post("/callAnswered", async (req, res) => {
   // Use the SDK to generate this BXML
   // ToDo: get the sessionId use out of here, maybe by placing it with "calls"
   console.log(`transferring call ${callId} to session ${sessionId}`);
-  const bxml = webRTCController.generateTransferBxml(participant.token);
+  const bxml = webRTCController.generateTransferBxml(participant.token, callId);
 
   console.log("BXML", bxml);
 
@@ -245,7 +270,7 @@ app.post("/callAnswered", async (req, res) => {
 app.get("/endPSTNCall", async (req, res) => {
   console.log("Hanging up PSTN call");
   try {
-    session_id = await getSessionId();
+    await getSessionId();
 
     await endCallToPSTN(accountId, callId);
     res.send({ status: "hungup" });
@@ -262,11 +287,11 @@ app.get("/endPSTNCall", async (req, res) => {
  * start our server
  */
 
-if (DEBUG) console.log("dirname", __dirname);
-app.use(express.static(path.join(__dirname, "frontend", "build")));
+if (DEBUG) console.log("dirname", path.resolve("frontend", "build"));
+app.use(express.static(path.resolve("frontend", "build")));
 
 app.get("/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend", "build", "index.html"));
+  res.sendFile(path.resolve("frontend", "build", "index.html"));
 });
 
 app.listen(port, () => {
@@ -300,7 +325,7 @@ async function getSessionId(account_id, tag) {
   console.log("No session found, creating one");
   // otherwise, create the session
   // tags are useful to audit or manage billing records
-  var sessionBody = new BandwidthWebRTC.Session({ tag: tag });
+  const sessionBody = { tag: tag };
 
   console.log("sessionBody", accountId, sessionBody);
 
@@ -310,9 +335,9 @@ async function getSessionId(account_id, tag) {
       sessionBody
     );
     // saves it for future use, this would normally be stored with meeting/call/appt details
-    saveSessionId(sessionResponse.id);
-    console.log(`session id created: ${sessionResponse.id}`);
-    return sessionResponse.id;
+    saveSessionId(sessionResponse.result.id);
+    console.log(`session id created: ${sessionResponse.result.id}`);
+    return sessionResponse.result.id;
   } catch (error) {
     console.log("Failed to create session:", error);
     throw new Error(
@@ -329,10 +354,10 @@ async function getSessionId(account_id, tag) {
  */
 async function createParticipant(account_id, tag) {
   // create a participant for this browser user
-  var participantBody = new BandwidthWebRTC.Participant({
+  const participantBody = {
     tag: tag,
     publishPermissions: ["AUDIO"],
-  });
+  };
 
   try {
     let createResponse = await webRTCController.createParticipant(
@@ -340,7 +365,7 @@ async function createParticipant(account_id, tag) {
       participantBody
     );
 
-    return [createResponse.participant, createResponse.token];
+    return [createResponse.result.participant, createResponse.result.token];
   } catch (error) {
     console.log("failed to create Participant", error);
     throw new Error(
@@ -373,11 +398,11 @@ async function updateSubscriptions(
   // iterate through all users and update their subscriptions
   console.log("\nUpdating the Subscriptions");
   users.forEach(async function (user, p_id, u_map) {
-    jsonSubs = determineSubscriptions(user, session_id);
+    const jsonSubs = determineSubscriptions(user, session_id);
     if (DEBUG) {
       console.log("\nSubscriber Update request for ", user, "\nis\n", jsonSubs);
     }
-    var body = new BandwidthWebRTC.Subscriptions(jsonSubs);
+    let body = jsonSubs;
 
     if (DEBUG) {
       // console.log("body is (1)", body);
@@ -397,7 +422,7 @@ async function updateSubscriptions(
 
     if (DEBUG) {
       console.log(
-        `\nupdating user ${user.role} ${user.participant_id} to \n${JSON.stringify(jsonSubs)}`
+        `\nUpdating subscriptions for user ${user.role} ${user.participant_id} to \n${JSON.stringify(body)}`
       );
       // console.log("body is (2)", body);
     }
@@ -427,8 +452,8 @@ async function updateSubscriptions(
         session_id, user.participant_id, body);
         await webRTCController.updateParticipantSubscriptions(
           account_id,
-          user.participant_id,
           session_id,
+          user.participant_id,
           body
         );
       }
@@ -465,7 +490,7 @@ function addUserToList(participant_id, role) {
       // clear it from any list
       validRoles.forEach(function (r) {
         // we don't know their old role
-        var index = roleMap[r].indexOf(participant_id);
+        const index = roleMap[r].indexOf(participant_id);
         if (index > -1) {
           roleMap[r].splice(index, 1);
         }
@@ -497,10 +522,10 @@ function determineSubscriptions(user, session_id) {
   if (DEBUG) {
     console.log(`subs for ${JSON.stringify(user)}`);
   }
-  var subscriptions = [];
+  let subscriptions = [];
   let rolesToListenTo = getRolesToListenTo(currentRoomState, user.role);
 
-  for (role of rolesToListenTo) {
+  for (let role of rolesToListenTo) {
     subscriptions = subscriptions.concat(roleMap[role]);
   }
 
@@ -534,7 +559,7 @@ function determineSubscriptions(user, session_id) {
   }
 
   // setup the updated subscribe for this user
-  var jsonBody = { sessionId: session_id, participants: [] };
+  const jsonBody = { sessionId: session_id, participants: [] };
   subscriptions.forEach(function (p_id) {
     jsonBody["participants"].push({ participantId: p_id });
   });
@@ -550,14 +575,14 @@ function determineSubscriptions(user, session_id) {
  */
 async function initiateCallToPSTN(account_id, from_number, to_number) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCalls.html
-  var body = new BandwidthVoice.ApiCreateCallRequest({
+  const body = {
     from: from_number,
     to: to_number,
     applicationId: process.env.VOICE_APPLICATION_ID,
     answerUrl: process.env.BASE_CALLBACK_URL + "callAnswered",
     answerMethod: "POST",
     callTimeout: "30",
-  });
+  };
 
   return await voiceController.createCall(accountId, body);
 }
@@ -569,7 +594,10 @@ async function initiateCallToPSTN(account_id, from_number, to_number) {
  */
 async function endCallToPSTN(account_id, call_id) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCallsCallId.html
-  var body = new BandwidthVoice.ApiModifyCallRequest({ state: "completed" });
+  const body = {
+    state: "completed",
+    redirectUrl: "foo"
+  }
   try {
     await voiceController.modifyCall(accountId, call_id, body);
   } catch (error) {

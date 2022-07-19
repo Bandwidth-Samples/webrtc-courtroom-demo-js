@@ -1,5 +1,5 @@
-const roles = ["judge", "LEP", "translator"];
-const roomStates = ["inPrep", "inSession", "inTervention"];
+export const roles = ["judge", "LEP", "translator"];
+export const roomStates = ["inPrep", "inSession", "inTervention"];
 
 const roomStateRoleListenTo = {
   inPrep: { judge: [], LEP: [], translator: [] },
@@ -48,7 +48,7 @@ function displayIt(state, role) {
   );
 }
 
-function getRolesToListenTo(roomstate, role) {
+export function getRolesToListenTo(roomstate, role) {
   // return an array of roles to listen to.
   return roomStateRoleListenTo[roomstate][role];
 }
@@ -83,6 +83,3 @@ console.log("\n");
 //   applyRoomStateChange(roomState, displayIt);
 // }
 
-module.exports.roles = roles;
-module.exports.roomStates = roomStates;
-module.exports.getRolesToListenTo = getRolesToListenTo;
