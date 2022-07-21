@@ -20,17 +20,38 @@ app.use(bodyParser.json());
 // TODO - validate the environment variables for existence
 const port = 5000;
 const accountId = process.env.BW_ACCOUNT_ID;
+const username = process.env.BW_USERNAME;
+const password = process.env.BW_PASSWORD;
 
 const DEBUG = false;
 
 // Global variables
-BandwidthWebRTC.Configuration.basicAuthUserName = process.env.BW_USERNAME;
-BandwidthWebRTC.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
-var webRTCController = BandwidthWebRTC.APIController;
+// BandwidthWebRTC.Configuration.basicAuthUserName = process.env.BW_USERNAME;
+// BandwidthWebRTC.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
+// var webRTCController = BandwidthWebRTC.APIController;
 
-BandwidthVoice.Configuration.basicAuthUserName = process.env.BW_USERNAME;
-BandwidthVoice.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
-var voiceController = BandwidthVoice.APIController;
+// BandwidthVoice.Configuration.basicAuthUserName = process.env.BW_USERNAME;
+// BandwidthVoice.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
+// var voiceController = BandwidthVoice.APIController;
+
+const httpServerUrl = process.env.BANDWIDTH_WEBRTC_CALL_CONTROL_URL;
+
+const {Client: WebRTCClient, ApiController: WebRTCController, Environment: Environment} = BandwidthWebRTC;
+const webrtcClient = new WebRTCClient({
+  basicAuthUserName: username,
+  basicAuthPassword: password,
+  // Uncomment to use a custom URL
+  // environment: Environment.Custom,
+  // baseUrl: httpServerUrl
+});
+const webRTCController = new WebRTCController(webrtcClient);
+
+const {Client: VoiceClient, ApiController: VoiceController} = BandwidthVoice;
+const voiceClient = new VoiceClient({
+  basicAuthUserName: username,
+  basicAuthPassword: password
+});
+const voiceController = new VoiceController(voiceClient);
 
 // create a map of PSTN calls that will persist
 let calls = new Map();
@@ -42,7 +63,7 @@ let users = new Map();
 // track our session ID and phone call Id
 //  - if not a demo, these would be stored in persistant storage
 let sessionId = false;
-let callId = false;    // TODO - get rid of this global 
+// let callId = false;    // TODO - get rid of this global 
 
 let roleMap = { judge: [], translator: [], LEP: [] };
 let currentRoomState = roomStates[0];
@@ -149,6 +170,7 @@ app.get("/roomTopology", async (req, res) => {
  * Start the Phone Call
  */
 app.get("/startPSTNCall", async (req, res) => {
+
   console.log(
     `\nTelephone call from ${req.query.participant} to ${req.query.destinationTn}`
   );
@@ -167,13 +189,12 @@ app.get("/startPSTNCall", async (req, res) => {
 
     callResponse = await initiateCallToPSTN(
       accountId,
-      process.env.FROM_NUMBER,
+      process.env.BW_NUMBER,
       destinationTn
     );
 
     // store the token with the participant for later use
     participant.token = token;
-    callId = callResponse.callId;
 
     calls.set(callResponse.callId, {
       participant: participant,
@@ -191,6 +212,8 @@ app.get("/startPSTNCall", async (req, res) => {
  * Bandwidth's Voice API will hit this endpoint when an outgoing call is answered
  */
 app.post("/callAnswered", async (req, res) => {
+  console.log("outbound call in call answered: ", req.body)
+  const callId = req.body.callId;
   console.log(
     `received answered callback for call ${callId} to ${req.body.to}`
   );
@@ -228,6 +251,8 @@ app.post("/callAnswered", async (req, res) => {
  * End the Phone Call
  */
 app.get("/endPSTNCall", async (req, res) => {
+  console.log("outbound call in end-call: ", req.body)
+  const callId = req.body.callId;
   console.log("Hanging up PSTN call");
   try {
     session_id = await getSessionId();
@@ -236,7 +261,8 @@ app.get("/endPSTNCall", async (req, res) => {
     res.send({ status: "hungup" });
   } catch (error) {
     console.log(
-      `error hanging up ${process.env.OUTBOUND_PHONE_NUMBER}:`,
+      slakdfjlsakdfjlsdkjf
+      `error hanging up ${req.body.to}:`,
       error
     );
     res.status(500).send({ status: "call hangup failed" });
@@ -522,7 +548,7 @@ async function initiateCallToPSTN(account_id, from_number, to_number) {
   var body = new BandwidthVoice.ApiCreateCallRequest({
     from: from_number,
     to: to_number,
-    applicationId: process.env.VOICE_APPLICATION_ID,
+    applicationId: process.env.BW_VOICE_APPLICATION_ID,
     answerUrl: process.env.BASE_CALLBACK_URL + "callAnswered",
     answerMethod: "POST",
     callTimeout: "30",
