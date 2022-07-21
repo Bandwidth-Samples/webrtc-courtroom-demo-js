@@ -53,12 +53,6 @@ function getRolesToListenTo(roomstate, role) {
   return roomStateRoleListenTo[roomstate][role];
 }
 
-// function applyRoomStateChange(newState = "inPrep", doWork) {
-//   for (let role of roles) {
-//     doWork(newState, role);
-//   }
-// }
-
 console.log("\nRoom State Map of who can listen to whom... ");
 for (let roomState of roomStates) {
   for (let role of roles) {
@@ -74,14 +68,6 @@ for (let roomState of roomStates) {
   console.log("\n");
 }
 console.log("\n");
-
-
-// console.log("------------------");
-
-// for (let roomState of roomStates) {
-//   console.log(" ");
-//   applyRoomStateChange(roomState, displayIt);
-// }
 
 module.exports.roles = roles;
 module.exports.roomStates = roomStates;

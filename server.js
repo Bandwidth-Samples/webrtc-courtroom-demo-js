@@ -19,17 +19,17 @@ app.use(bodyParser.json());
 // config
 // TODO - validate the environment variables for existence
 const port = 5000;
-const accountId = process.env.ACCOUNT_ID;
+const accountId = process.env.BW_ACCOUNT_ID;
 
 const DEBUG = false;
 
 // Global variables
-BandwidthWebRTC.Configuration.basicAuthUserName = process.env.BAND_USERNAME;
-BandwidthWebRTC.Configuration.basicAuthPassword = process.env.BAND_PASSWORD;
+BandwidthWebRTC.Configuration.basicAuthUserName = process.env.BW_USERNAME;
+BandwidthWebRTC.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
 var webRTCController = BandwidthWebRTC.APIController;
 
-BandwidthVoice.Configuration.basicAuthUserName = process.env.BAND_USERNAME;
-BandwidthVoice.Configuration.basicAuthPassword = process.env.BAND_PASSWORD;
+BandwidthVoice.Configuration.basicAuthUserName = process.env.BW_USERNAME;
+BandwidthVoice.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
 var voiceController = BandwidthVoice.APIController;
 
 // create a map of PSTN calls that will persist
@@ -76,7 +76,7 @@ process.on("SIGINT", async function () {
  * Setup the call and pass info to the browser so they can join
  */
 app.post("/startBrowserCall", async (req, res) => {
-  console.log(`\n\n\nsetup browser client for role of: ${req.query.role}`);
+  console.log(`\nsetup browser client for role of: ${req.query.role}`);
   if (!validRoles.includes(req.query.role)) {
     console.log(`Bad role passed in :${req.query.role}`);
     res.status(400).send({ message: `${req.query.role} is not a valid role` });
@@ -150,7 +150,7 @@ app.get("/roomTopology", async (req, res) => {
  */
 app.get("/startPSTNCall", async (req, res) => {
   console.log(
-    `call from ${req.query.participant} to ${req.query.destinationTn}`
+    `\nTelephone call from ${req.query.participant} to ${req.query.destinationTn}`
   );
   let { participant: initiatingParticipant, destinationTn } = req.query;
   // TODO - fix the hack by properly URLencoding the querystring.
@@ -165,7 +165,6 @@ app.get("/startPSTNCall", async (req, res) => {
       destinationTn
     );
 
-    console.log("start the PSTN call to", process.env.destinationTn);
     callResponse = await initiateCallToPSTN(
       accountId,
       process.env.FROM_NUMBER,
@@ -176,14 +175,10 @@ app.get("/startPSTNCall", async (req, res) => {
     participant.token = token;
     callId = callResponse.callId;
 
-    console.log("stashing the phone call", callResponse.callId, participant);
-
     calls.set(callResponse.callId, {
       participant: participant,
       sponsorRole: users.get(initiatingParticipant).role,
     });
-
-    console.log("Calls: ", calls);
 
     res.send({ status: "ringing" });
   } catch (error) {
@@ -199,16 +194,10 @@ app.post("/callAnswered", async (req, res) => {
   console.log(
     `received answered callback for call ${callId} to ${req.body.to}`
   );
-  console.log("answered body", req.body);
   session_id = await getSessionId();
 
   const { participant, sponsorRole } = calls.get(callId);
-  console.log(
-    "updating the subscriptions for the phone call",
-    callId,
-    participant,
-    sponsorRole
-  );
+  console.log( `updating the subscriptions for the phone call ${callId} as a ${sponsorRole}`);
 
   if (!participant) {
     console.log(`no participant found for ${callId}!`);
@@ -228,15 +217,11 @@ app.post("/callAnswered", async (req, res) => {
 
   // This is the response payload that we will send back to the Voice API to transfer the call into the WebRTC session
   // Use the SDK to generate this BXML
-  // ToDo: get the sessionId use out of here, maybe by placing it with "calls"
   console.log(`transferring call ${callId} to session ${sessionId}`);
   const bxml = webRTCController.generateTransferBxml(participant.token);
 
-  console.log("BXML", bxml);
-
   // Send the payload back to the Voice API
   res.contentType("application/xml").send(bxml);
-  console.log("transferred");
 });
 
 /**
@@ -301,8 +286,6 @@ async function getSessionId(account_id, tag) {
   // otherwise, create the session
   // tags are useful to audit or manage billing records
   var sessionBody = new BandwidthWebRTC.Session({ tag: tag });
-
-  console.log("sessionBody", accountId, sessionBody);
 
   try {
     let sessionResponse = await webRTCController.createSession(
@@ -512,20 +495,6 @@ function determineSubscriptions(user, session_id) {
     " from ",
     rolesToListenTo
   );
-  // managers and employees can hear everyone
-  // if (user.role == "manager" || user.role == "employee") {
-  //   subscriptions = subscriptions.concat(
-  //     roleMap["judge"],
-  //     roleMap["translator"],
-  //     roleMap["LEP"]
-  //   );
-
-  //   // guests can hear each other and employees
-  // } else if (user.role == "guest") {
-  //   subscriptions = subscriptions.concat(roleMap["employee"], roleMap["guest"]);
-  // } else {
-  //   console.log(`Bad role found: ${user.role}`);
-  // }
 
   // Remove this user from their own list of subs
   const index = subscriptions.indexOf(user.participant_id);
@@ -534,7 +503,7 @@ function determineSubscriptions(user, session_id) {
   }
 
   // setup the updated subscribe for this user
-  var jsonBody = { sessionId: session_id, participants: [] };
+  var jsonBody = {  participants: [] };
   subscriptions.forEach(function (p_id) {
     jsonBody["participants"].push({ participantId: p_id });
   });
