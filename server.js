@@ -1,19 +1,18 @@
-const fs = require("fs");
-const express = require("express");
-const path = require("path");
-const BandwidthWebRTC = require("@bandwidth/webrtc");
-const BandwidthVoice = require("@bandwidth/voice");
-const uuid = require("uuid");
-const dotenv = require("dotenv").config();
-const jwt_decode = require("jwt-decode");
-const app = express();
-const bodyParser = require("body-parser");
-const { roles, roomStates, getRolesToListenTo } = require("./roomState");
-const { removeAllListeners } = require("process");
+import express from "express";
+import path from "path"
+import bodyParser from "body-parser";
+import BandwidthWebRTC from "@bandwidth/webrtc";
+import BandwidthVoice from "@bandwidth/voice";
+import { v1 as uuidv1 } from "uuid";
+import dotenv from "dotenv";
+import { roles, roomStates, getRolesToListenTo } from "./roomstate.js";
 
 // TODO - clean up all resources on browser close and on SIGINT
 // TODO - clean up the debug logging a bit
 
+dotenv.config();
+
+const app = express();
 app.use(bodyParser.json());
 
 // config
@@ -39,6 +38,7 @@ if (!accountId || !username || !password) {
  * - The websocketUrl supplied to BandwidthRtc.connect() (in frontend/src/services/utils.js)
  */
 
+
 const httpServerUrl = process.env.BANDWIDTH_WEBRTC_CALL_CONTROL_URL;
 
 const {Client: WebRTCClient, ApiController: WebRTCController, Environment: Environment} = BandwidthWebRTC;
@@ -59,18 +59,18 @@ const voiceClient = new VoiceClient({
 const voiceController = new VoiceController(voiceClient);
 
 // create a map of PSTN calls that will persist
-let calls = new Map();
+const calls = new Map();
 
 // create an Map of users
 //  participant_id -> { role: role, participant_id: participant_id }
-let users = new Map();
+const users = new Map();
 
 // track our session ID and phone call Id
-//  - if not a demo, these would be stored in persistant storage
+//  - if not a demo, these would be stored in persistent storage
 let sessionId = false;
 // let callId = false;    // TODO - get rid of this global 
 
-let roleMap = { judge: [], translator: [], LEP: [] };
+const roleMap = { judge: [], translator: [], LEP: [] };
 let currentRoomState = roomStates[0];
 
 // let validRoles = ["employee", "manager", "guest"];
@@ -113,7 +113,7 @@ app.post("/startBrowserCall", async (req, res) => {
     // get/create the session
     let session_id = await getSessionId(accountId, "session-test");
 
-    let [participant, token] = await createParticipant(accountId, uuid.v1());
+    let [participant, token] = await createParticipant(accountId, uuidv1());
 
     await updateSubscriptions(
       accountId,
@@ -184,7 +184,7 @@ app.get("/startPSTNCall", async (req, res) => {
   destinationTn = "+1" + destinationTn;
 
   try {
-    session_id = await getSessionId();
+    await getSessionId();
     if (!initiatingParticipant || !destinationTn) throw "incomplete parameters";
 
     let [participant, token] = await createParticipant(
@@ -192,7 +192,7 @@ app.get("/startPSTNCall", async (req, res) => {
       destinationTn
     );
 
-    callResponse = await initiateCallToPSTN(
+    const callResponse = await initiateCallToPSTN(
       process.env.BW_NUMBER,
       destinationTn
     );
@@ -223,6 +223,7 @@ app.post("/callAnswered", async (req, res) => {
   console.log(
     `received answered callback for call ${callId} to ${req.body.to}`
   );
+
   session_id = await getSessionId();
 
   const { participant, sponsorRole } = calls.get(callId);
@@ -262,7 +263,7 @@ app.get("/endPSTNCall", async (req, res) => {
   const callId = req.body.callId;
   console.log("Hanging up PSTN call");
   try {
-    session_id = await getSessionId();
+    await getSessionId();
 
     await endCallToPSTN( callId );
     res.send({ status: "hungup" });
@@ -280,11 +281,11 @@ app.get("/endPSTNCall", async (req, res) => {
  * start our server
  */
 
-if (DEBUG) console.log("dirname", __dirname);
-app.use(express.static(path.join(__dirname, "frontend", "build")));
+if (DEBUG) console.log("dirname", path.resolve("frontend", "build"));
+app.use(express.static(path.resolve("frontend", "build")));
 
 app.get("/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend", "build", "index.html"));
+  res.sendFile(path.resolve("frontend", "build", "index.html"));
 });
 
 app.listen(port, () => {
@@ -318,8 +319,8 @@ async function getSessionId(account_id, tag) {
   console.log("No session found, creating one");
   // otherwise, create the session
   // tags are useful to audit or manage billing records
-  var sessionBody = { tag: tag };
 
+  const sessionBody = { tag: tag };
   try {
     let sessionResponse = await webRTCController.createSession(
       account_id,
@@ -345,7 +346,8 @@ async function getSessionId(account_id, tag) {
  */
 async function createParticipant(account_id, tag) {
   // create a participant for this browser user
-  var participantBody = {
+
+  const participantBody = {
     tag: tag,
     publishPermissions: ["AUDIO"],
   };
@@ -389,7 +391,7 @@ async function updateSubscriptions(
   // iterate through all users and update their subscriptions
   console.log("\nUpdating the Subscriptions");
   users.forEach(async function (user, p_id, u_map) {
-    jsonSubs = determineSubscriptions(user, session_id);
+    const jsonSubs = determineSubscriptions(user, session_id);
     if (DEBUG) {
       console.log("\nSubscriber Update request for ", user, "\nis\n", jsonSubs);
     }
@@ -413,7 +415,7 @@ async function updateSubscriptions(
 
     if (DEBUG) {
       console.log(
-        `\nupdating user ${user.role} ${user.participant_id} to \n${JSON.stringify(jsonSubs)}`
+        `\nUpdating subscriptions for user ${user.role} ${user.participant_id} to \n${JSON.stringify(body)}`
       );
     }
 
@@ -480,7 +482,7 @@ function addUserToList(participant_id, role) {
       // clear it from any list
       validRoles.forEach(function (r) {
         // we don't know their old role
-        var index = roleMap[r].indexOf(participant_id);
+        const index = roleMap[r].indexOf(participant_id);
         if (index > -1) {
           roleMap[r].splice(index, 1);
         }
@@ -512,10 +514,10 @@ function determineSubscriptions(user, session_id) {
   if (DEBUG) {
     console.log(`subs for ${JSON.stringify(user)}`);
   }
-  var subscriptions = [];
+  let subscriptions = [];
   let rolesToListenTo = getRolesToListenTo(currentRoomState, user.role);
 
-  for (role of rolesToListenTo) {
+  for (let role of rolesToListenTo) {
     subscriptions = subscriptions.concat(roleMap[role]);
   }
 
@@ -535,7 +537,8 @@ function determineSubscriptions(user, session_id) {
   }
 
   // setup the updated subscribe for this user
-  var jsonBody = {  participants: [] };
+
+  const jsonBody = {  participants: [] };
   subscriptions.forEach(function (p_id) {
     jsonBody["participants"].push({ participantId: p_id });
   });
@@ -551,7 +554,9 @@ function determineSubscriptions(user, session_id) {
  */
 async function initiateCallToPSTN( from_number, to_number) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCalls.html
-  var body = {
+
+  const body = {
+
     from: from_number,
     to: to_number,
     applicationId: process.env.BW_VOICE_APPLICATION_ID,
@@ -570,7 +575,9 @@ async function initiateCallToPSTN( from_number, to_number) {
  */
 async function endCallToPSTN( call_id) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCallsCallId.html
+
   var body = { state: "completed" };
+
   try {
     await voiceController.modifyCall(accountId, call_id, body);
   } catch (error) {
