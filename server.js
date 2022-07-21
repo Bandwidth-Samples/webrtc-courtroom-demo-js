@@ -17,22 +17,27 @@ const { removeAllListeners } = require("process");
 app.use(bodyParser.json());
 
 // config
-// TODO - validate the environment variables for existence
+
+const DEBUG = false;
 const port = 5000;
 const accountId = process.env.BW_ACCOUNT_ID;
 const username = process.env.BW_USERNAME;
 const password = process.env.BW_PASSWORD;
 
-const DEBUG = false;
+// Check to make sure required environment variables are set
+if (!accountId || !username || !password) {
+  console.error(
+      "ERROR! Please set the ACCOUNT_ID, BAND_PASSWORD, and BW_PASSWORD environment variables before running this app"
+  );
+  process.exit(1);
+}
 
-// Global variables
-// BandwidthWebRTC.Configuration.basicAuthUserName = process.env.BW_USERNAME;
-// BandwidthWebRTC.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
-// var webRTCController = BandwidthWebRTC.APIController;
-
-// BandwidthVoice.Configuration.basicAuthUserName = process.env.BW_USERNAME;
-// BandwidthVoice.Configuration.basicAuthPassword = process.env.BW_PASSWORD;
-// var voiceController = BandwidthVoice.APIController;
+/*
+ * To use a non-production environment, update the following with custom URLs and values:
+ * - The creation of the WebRTCClient below
+ * - Any use of webRTCController.generateTransferBxml(), supply a custom sipUri value
+ * - The websocketUrl supplied to BandwidthRtc.connect() (in frontend/src/services/utils.js)
+ */
 
 const httpServerUrl = process.env.BANDWIDTH_WEBRTC_CALL_CONTROL_URL;
 
@@ -188,7 +193,6 @@ app.get("/startPSTNCall", async (req, res) => {
     );
 
     callResponse = await initiateCallToPSTN(
-      accountId,
       process.env.BW_NUMBER,
       destinationTn
     );
@@ -196,10 +200,12 @@ app.get("/startPSTNCall", async (req, res) => {
     // store the token with the participant for later use
     participant.token = token;
 
-    calls.set(callResponse.callId, {
+    const callsBody = {
       participant: participant,
       sponsorRole: users.get(initiatingParticipant).role,
-    });
+    };
+
+    calls.set(callResponse.result.callId, callsBody);
 
     res.send({ status: "ringing" });
   } catch (error) {
@@ -241,7 +247,8 @@ app.post("/callAnswered", async (req, res) => {
   // This is the response payload that we will send back to the Voice API to transfer the call into the WebRTC session
   // Use the SDK to generate this BXML
   console.log(`transferring call ${callId} to session ${sessionId}`);
-  const bxml = webRTCController.generateTransferBxml(participant.token);
+
+  const bxml = WebRTCController.generateTransferBxml(participant.token, callId);
 
   // Send the payload back to the Voice API
   res.contentType("application/xml").send(bxml);
@@ -257,7 +264,7 @@ app.get("/endPSTNCall", async (req, res) => {
   try {
     session_id = await getSessionId();
 
-    await endCallToPSTN(accountId, callId);
+    await endCallToPSTN( callId );
     res.send({ status: "hungup" });
   } catch (error) {
     console.log(
@@ -311,7 +318,7 @@ async function getSessionId(account_id, tag) {
   console.log("No session found, creating one");
   // otherwise, create the session
   // tags are useful to audit or manage billing records
-  var sessionBody = new BandwidthWebRTC.Session({ tag: tag });
+  var sessionBody = { tag: tag };
 
   try {
     let sessionResponse = await webRTCController.createSession(
@@ -319,9 +326,9 @@ async function getSessionId(account_id, tag) {
       sessionBody
     );
     // saves it for future use, this would normally be stored with meeting/call/appt details
-    saveSessionId(sessionResponse.id);
-    console.log(`session id created: ${sessionResponse.id}`);
-    return sessionResponse.id;
+    saveSessionId(sessionResponse.result.id);
+    console.log(`session id created: ${sessionResponse.result.id}`);
+    return sessionResponse.result.id;
   } catch (error) {
     console.log("Failed to create session:", error);
     throw new Error(
@@ -338,10 +345,10 @@ async function getSessionId(account_id, tag) {
  */
 async function createParticipant(account_id, tag) {
   // create a participant for this browser user
-  var participantBody = new BandwidthWebRTC.Participant({
+  var participantBody = {
     tag: tag,
     publishPermissions: ["AUDIO"],
-  });
+  };
 
   try {
     let createResponse = await webRTCController.createParticipant(
@@ -349,7 +356,7 @@ async function createParticipant(account_id, tag) {
       participantBody
     );
 
-    return [createResponse.participant, createResponse.token];
+    return [createResponse.result.participant, createResponse.result.token];
   } catch (error) {
     console.log("failed to create Participant", error);
     throw new Error(
@@ -386,7 +393,7 @@ async function updateSubscriptions(
     if (DEBUG) {
       console.log("\nSubscriber Update request for ", user, "\nis\n", jsonSubs);
     }
-    var body = new BandwidthWebRTC.Subscriptions(jsonSubs);
+    let body = jsonSubs;
 
     if (DEBUG) {
       // console.log("body is (1)", body);
@@ -408,7 +415,6 @@ async function updateSubscriptions(
       console.log(
         `\nupdating user ${user.role} ${user.participant_id} to \n${JSON.stringify(jsonSubs)}`
       );
-      // console.log("body is (2)", body);
     }
 
     try {
@@ -436,8 +442,8 @@ async function updateSubscriptions(
         session_id, user.participant_id, body);
         await webRTCController.updateParticipantSubscriptions(
           account_id,
-          user.participant_id,
           session_id,
+          user.participant_id,
           body
         );
       }
@@ -543,16 +549,16 @@ function determineSubscriptions(user, session_id) {
  * @param from_number the FROM on the call
  * @param to_number the number to call
  */
-async function initiateCallToPSTN(account_id, from_number, to_number) {
+async function initiateCallToPSTN( from_number, to_number) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCalls.html
-  var body = new BandwidthVoice.ApiCreateCallRequest({
+  var body = {
     from: from_number,
     to: to_number,
     applicationId: process.env.BW_VOICE_APPLICATION_ID,
     answerUrl: process.env.BASE_CALLBACK_URL + "callAnswered",
     answerMethod: "POST",
     callTimeout: "30",
-  });
+  };
 
   return await voiceController.createCall(accountId, body);
 }
@@ -562,9 +568,9 @@ async function initiateCallToPSTN(account_id, from_number, to_number) {
  * @param account_id The id for this account
  * @param call_id The id of the call
  */
-async function endCallToPSTN(account_id, call_id) {
+async function endCallToPSTN( call_id) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCallsCallId.html
-  var body = new BandwidthVoice.ApiModifyCallRequest({ state: "completed" });
+  var body = { state: "completed" };
   try {
     await voiceController.modifyCall(accountId, call_id, body);
   } catch (error) {
