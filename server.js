@@ -16,11 +16,12 @@ const app = express();
 app.use(bodyParser.json());
 
 // config
-const DEBUG = true;
+
+const DEBUG = false;
 const port = 5000;
-const accountId = process.env.ACCOUNT_ID;
-const username = process.env.BAND_USERNAME;
-const password = process.env.BAND_PASSWORD;
+const accountId = process.env.BW_ACCOUNT_ID;
+const username = process.env.BW_USERNAME;
+const password = process.env.BW_PASSWORD;
 
 // Check to make sure required environment variables are set
 if (!accountId || !username || !password) {
@@ -37,8 +38,8 @@ if (!accountId || !username || !password) {
  * - The websocketUrl supplied to BandwidthRtc.connect() (in frontend/src/services/utils.js)
  */
 
-// Global variables
-const httpServerUrl = process.env.WEBRTC_HTTP_SERVER_URL;
+
+const httpServerUrl = process.env.BANDWIDTH_WEBRTC_CALL_CONTROL_URL;
 
 const {Client: WebRTCClient, ApiController: WebRTCController, Environment: Environment} = BandwidthWebRTC;
 const webrtcClient = new WebRTCClient({
@@ -67,7 +68,7 @@ const users = new Map();
 // track our session ID and phone call Id
 //  - if not a demo, these would be stored in persistent storage
 let sessionId = false;
-let callId = false;    // TODO - get rid of this global 
+// let callId = false;    // TODO - get rid of this global 
 
 const roleMap = { judge: [], translator: [], LEP: [] };
 let currentRoomState = roomStates[0];
@@ -101,7 +102,7 @@ process.on("SIGINT", async function () {
  * Setup the call and pass info to the browser so they can join
  */
 app.post("/startBrowserCall", async (req, res) => {
-  console.log(`\n\n\nsetup browser client for role of: ${req.query.role}`);
+  console.log(`\nsetup browser client for role of: ${req.query.role}`);
   if (!validRoles.includes(req.query.role)) {
     console.log(`Bad role passed in :${req.query.role}`);
     res.status(400).send({ message: `${req.query.role} is not a valid role` });
@@ -174,8 +175,9 @@ app.get("/roomTopology", async (req, res) => {
  * Start the Phone Call
  */
 app.get("/startPSTNCall", async (req, res) => {
+
   console.log(
-    `call from ${req.query.participant} to ${req.query.destinationTn}`
+    `\nTelephone call from ${req.query.participant} to ${req.query.destinationTn}`
   );
   let { participant: initiatingParticipant, destinationTn } = req.query;
   // TODO - fix the hack by properly URLencoding the querystring.
@@ -190,25 +192,20 @@ app.get("/startPSTNCall", async (req, res) => {
       destinationTn
     );
 
-    console.log("start the PSTN call to", process.env.destinationTn);
     const callResponse = await initiateCallToPSTN(
-      accountId,
-      process.env.FROM_NUMBER,
+      process.env.BW_NUMBER,
       destinationTn
     );
 
     // store the token with the participant for later use
     participant.token = token;
-    callId = callResponse.callId;
 
-    console.log("stashing the phone call", callResponse.callId, participant);
-
-    calls.set(callResponse.callId, {
+    const callsBody = {
       participant: participant,
       sponsorRole: users.get(initiatingParticipant).role,
-    });
+    };
 
-    console.log("Calls: ", calls);
+    calls.set(callResponse.result.callId, callsBody);
 
     res.send({ status: "ringing" });
   } catch (error) {
@@ -221,19 +218,16 @@ app.get("/startPSTNCall", async (req, res) => {
  * Bandwidth's Voice API will hit this endpoint when an outgoing call is answered
  */
 app.post("/callAnswered", async (req, res) => {
+  console.log("outbound call in call answered: ", req.body)
+  const callId = req.body.callId;
   console.log(
     `received answered callback for call ${callId} to ${req.body.to}`
   );
-  console.log("call answered body", req.body);
-  await getSessionId();
+
+  session_id = await getSessionId();
 
   const { participant, sponsorRole } = calls.get(callId);
-  console.log(
-    "updating the subscriptions for the phone call",
-    callId,
-    participant,
-    sponsorRole
-  );
+  console.log( `updating the subscriptions for the phone call ${callId} as a ${sponsorRole}`);
 
   if (!participant) {
     console.log(`no participant found for ${callId}!`);
@@ -253,30 +247,30 @@ app.post("/callAnswered", async (req, res) => {
 
   // This is the response payload that we will send back to the Voice API to transfer the call into the WebRTC session
   // Use the SDK to generate this BXML
-  // ToDo: get the sessionId use out of here, maybe by placing it with "calls"
   console.log(`transferring call ${callId} to session ${sessionId}`);
-  const bxml = webRTCController.generateTransferBxml(participant.token, callId);
 
-  console.log("BXML", bxml);
+  const bxml = WebRTCController.generateTransferBxml(participant.token, callId);
 
   // Send the payload back to the Voice API
   res.contentType("application/xml").send(bxml);
-  console.log("transferred");
 });
 
 /**
  * End the Phone Call
  */
 app.get("/endPSTNCall", async (req, res) => {
+  console.log("outbound call in end-call: ", req.body)
+  const callId = req.body.callId;
   console.log("Hanging up PSTN call");
   try {
     await getSessionId();
 
-    await endCallToPSTN(accountId, callId);
+    await endCallToPSTN( callId );
     res.send({ status: "hungup" });
   } catch (error) {
     console.log(
-      `error hanging up ${process.env.OUTBOUND_PHONE_NUMBER}:`,
+      slakdfjlsakdfjlsdkjf
+      `error hanging up ${req.body.to}:`,
       error
     );
     res.status(500).send({ status: "call hangup failed" });
@@ -325,10 +319,8 @@ async function getSessionId(account_id, tag) {
   console.log("No session found, creating one");
   // otherwise, create the session
   // tags are useful to audit or manage billing records
+
   const sessionBody = { tag: tag };
-
-  console.log("sessionBody", accountId, sessionBody);
-
   try {
     let sessionResponse = await webRTCController.createSession(
       account_id,
@@ -354,6 +346,7 @@ async function getSessionId(account_id, tag) {
  */
 async function createParticipant(account_id, tag) {
   // create a participant for this browser user
+
   const participantBody = {
     tag: tag,
     publishPermissions: ["AUDIO"],
@@ -424,7 +417,6 @@ async function updateSubscriptions(
       console.log(
         `\nUpdating subscriptions for user ${user.role} ${user.participant_id} to \n${JSON.stringify(body)}`
       );
-      // console.log("body is (2)", body);
     }
 
     try {
@@ -537,20 +529,6 @@ function determineSubscriptions(user, session_id) {
     " from ",
     rolesToListenTo
   );
-  // managers and employees can hear everyone
-  // if (user.role == "manager" || user.role == "employee") {
-  //   subscriptions = subscriptions.concat(
-  //     roleMap["judge"],
-  //     roleMap["translator"],
-  //     roleMap["LEP"]
-  //   );
-
-  //   // guests can hear each other and employees
-  // } else if (user.role == "guest") {
-  //   subscriptions = subscriptions.concat(roleMap["employee"], roleMap["guest"]);
-  // } else {
-  //   console.log(`Bad role found: ${user.role}`);
-  // }
 
   // Remove this user from their own list of subs
   const index = subscriptions.indexOf(user.participant_id);
@@ -559,7 +537,8 @@ function determineSubscriptions(user, session_id) {
   }
 
   // setup the updated subscribe for this user
-  const jsonBody = { sessionId: session_id, participants: [] };
+
+  const jsonBody = {  participants: [] };
   subscriptions.forEach(function (p_id) {
     jsonBody["participants"].push({ participantId: p_id });
   });
@@ -573,12 +552,14 @@ function determineSubscriptions(user, session_id) {
  * @param from_number the FROM on the call
  * @param to_number the number to call
  */
-async function initiateCallToPSTN(account_id, from_number, to_number) {
+async function initiateCallToPSTN( from_number, to_number) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCalls.html
+
   const body = {
+
     from: from_number,
     to: to_number,
-    applicationId: process.env.VOICE_APPLICATION_ID,
+    applicationId: process.env.BW_VOICE_APPLICATION_ID,
     answerUrl: process.env.BASE_CALLBACK_URL + "callAnswered",
     answerMethod: "POST",
     callTimeout: "30",
@@ -592,12 +573,11 @@ async function initiateCallToPSTN(account_id, from_number, to_number) {
  * @param account_id The id for this account
  * @param call_id The id of the call
  */
-async function endCallToPSTN(account_id, call_id) {
+async function endCallToPSTN( call_id) {
   // call body, see here for more details: https://dev.bandwidth.com/voice/methods/calls/postCallsCallId.html
-  const body = {
-    state: "completed",
-    redirectUrl: "foo"
-  }
+
+  var body = { state: "completed" };
+
   try {
     await voiceController.modifyCall(accountId, call_id, body);
   } catch (error) {
