@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@bandwidth/webrtc-browser": "^0.11.3",
-    "axios": "^0.27.2",
+    "axios": "^1.6.0",
     "body-parser": "^1.20.0",
     "bootstrap": "^4.6.0",
     "dotenv": "^16.0.1",
